@@ -1,56 +1,43 @@
+using Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://localhost:3000");
 
 
 
-builder.Services.AddOpenApi();
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var configuration = builder.Configuration;
+
+builder.Services.AddDbContext<ShoppingListContext>(options =>
+    options.UseMySql(
+        configuration.GetConnectionString("DefaultConnection"),
+        ServerVersion.AutoDetect(configuration.GetConnectionString("DefaultConnection"))
+    )
+);
+
+
 
 var app = builder.Build();
 
-
-
+using (var scope = builder.Services.BuildServiceProvider().CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ShoppingListContext>();
+    context.Database.Migrate();  
+}
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 
+app.UseAuthorization();
 
-
-var items = new List<Item>();
-
-
-app.MapPost("/shop", (Item item) =>
-{
-    if (item == null)
-    {
-        return Results.BadRequest("Item data is invalid");
-    }
-    Console.WriteLine(item.ToString());
-
-  
-    items.Add(item);
-    return Results.Ok(new { message = "Item added successfully" });
-});
-app.MapGet("/shop", () =>
-{
-    
-    return Results.Ok(items);
-});
- 
+app.MapControllers();
 
 app.Run();
-
-public class Item
-{
-    public string Name { get; set; }
-    public int Quality { get; set; }
-    public decimal Price { get; set; }
-    public override string ToString()
-    {
-        return $"Name:{Name}, Quality:{Quality},Price:{Price}";
-    }
-}
-
